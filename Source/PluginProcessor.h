@@ -55,10 +55,31 @@ public:
     //==============================================================================
     void getStateInformation (MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
+    
+    int getNumParameters() override;
+    float getParameter(int index) override;
+    void setParameter(int index, float value) override;
+    const String getParameterName(int index) override;
+    const String getParameterText(int index) override;
+    
+    enum Parameters
+    {
+        kDelayTimeParam = 0,
+        kFeedbackParam,
+        kNumParameters
+    };
+    
+    float feedback;
+    float delayTime;
 
 private:
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StereoDelayAudioProcessor)
+    
+    AudioSampleBuffer delayBuffer;
+    int delayBufferLength;
+    int readIndex;
+    int writeIndex;
 };
 
 

@@ -25,6 +25,12 @@ StereoDelayAudioProcessor::StereoDelayAudioProcessor()
                        )
 #endif
 {
+    feedback = 0.5;
+    delayTime = 0.25;
+    readIndex = 0;
+    
+    writeIndex = delayTime;
+    delayBufferLength = 0;
 }
 
 StereoDelayAudioProcessor::~StereoDelayAudioProcessor()
@@ -35,6 +41,74 @@ StereoDelayAudioProcessor::~StereoDelayAudioProcessor()
 const String StereoDelayAudioProcessor::getName() const
 {
     return JucePlugin_Name;
+}
+
+int StereoDelayAudioProcessor::getNumParameters()
+{
+    return kNumParameters;
+}
+
+float StereoDelayAudioProcessor::getParameter(int index)
+{
+    // This method will be called by the host, probably on the audio thread, so
+    // it's absolutely time-critical. Don't use critical sections or anything
+    // UI-related, or anything at all that may block in any way!
+    switch(index)
+    {
+        case kDelayTimeParam:
+            return delayTime;
+        
+        case kFeedbackParam:
+            return feedback;
+            
+        default:
+            return 0.0f;
+    }
+}
+
+const String StereoDelayAudioProcessor::getParameterName(int index)
+{
+    switch(index)
+    {
+        case kDelayTimeParam:
+            return "Delay Time";
+            
+        case kFeedbackParam:
+            return "Feedback";
+            
+        default:
+            break;
+    }
+    
+    return String::empty;
+}
+
+void StereoDelayAudioProcessor::setParameter(int index, float value)
+{
+    // This method will be called by the host, probably on the audio thread, so
+    // it's absolutely time-critical. Don't use critical sections or anything
+    // UI-related, or anything at all that may block in any way!
+    switch(index)
+    {
+        case kDelayTimeParam:
+            delayTime = value;
+            
+            // IMPORTANT: calculate the position of the readIndex relative to the write
+            // i.e. the delay time in samples
+            readIndex = (int)(writeIndex - (delayTime * delayBufferLength) + delayBufferLength) % delayBufferLength;
+            break;
+        case kFeedbackParam:
+            feedback = value;
+            break;
+        
+        default:
+            break;
+    }
+}
+
+const String StereoDelayAudioProcessor::getParameterText(int index)
+{
+    return String (getParameter(index), 2);
 }
 
 bool StereoDelayAudioProcessor::acceptsMidi() const
@@ -89,6 +163,20 @@ void StereoDelayAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 {
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
+    
+    // Maximum delay of 1 second
+    delayBufferLength = (int)(sampleRate);
+    
+    // Set the bufer to 1 channel of the size of delayBufferLength
+    delayBuffer.setSize(1, delayBufferLength);
+    
+    // Set all samples in the buffer to zero
+    delayBuffer.clear();
+    
+    // IMPORTANT
+    // Calculate the position of the read index relative to the write index
+    // i.e. the delay time in samples
+    readIndex = (int)(writeIndex - (delayTime * delayBufferLength) + delayBufferLength) % delayBufferLength;
 }
 
 void StereoDelayAudioProcessor::releaseResources()
@@ -135,13 +223,34 @@ void StereoDelayAudioProcessor::processBlock (AudioSampleBuffer& buffer, MidiBuf
     for (int i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    float* delayData = delayBuffer.getWritePointer(0);
+    float wetMix = 0.5;
+    
+    float* channelData = buffer.getWritePointer (0);
+    // ..do something to the data...
+    
+    for (int i = 0; i < buffer.getNumSamples(); i++)
     {
-        float* channelData = buffer.getWritePointer (channel);
-
-        // ..do something to the data...
+        // Calculate the next output sample (current input sample + delayed version)
+        float outputSample = (channelData[i] + (wetMix * delayData[readIndex]));
+        
+        // Write the current input into the delay buffer along with the delayed sample
+        delayData[writeIndex] = channelData[i] + (delayData[readIndex] * feedback);
+        
+        // Increment read and write index, check to see if it's greater than buffer length
+        // if yes, wrap back around to zero
+        if (++readIndex >= delayBufferLength)
+        {
+            readIndex = 0;
+        }
+        
+        if (++writeIndex >= delayBufferLength)
+        {
+            writeIndex = 0;
+        }
+        
+        // Play the resulting calculated output sample
+        channelData[i] = outputSample;
     }
 }
 

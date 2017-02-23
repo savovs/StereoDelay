@@ -17,8 +17,8 @@
   ==============================================================================
 */
 
-#ifndef __JUCE_HEADER_E381F33C12CAF11D__
-#define __JUCE_HEADER_E381F33C12CAF11D__
+#ifndef __JUCE_HEADER_F163B3138F7FE248__
+#define __JUCE_HEADER_F163B3138F7FE248__
 
 //[Headers]     -- You can add your own extra header files here --
 #include "../JuceLibraryCode/JuceHeader.h"
@@ -36,7 +36,8 @@
                                                                     //[/Comments]
 */
 class StereoDelayAudioProcessorEditor  : public AudioProcessorEditor,
-                                           public Timer
+                                         public Timer,
+                                         public SliderListener
 {
 public:
     //==============================================================================
@@ -50,6 +51,7 @@ public:
 
     void paint (Graphics& g) override;
     void resized() override;
+    void sliderValueChanged (Slider* sliderThatWasMoved) override;
 
 
 
@@ -59,6 +61,10 @@ private:
     //[/UserVariables]
 
     //==============================================================================
+    ScopedPointer<Slider> sliderDelayTime;
+    ScopedPointer<Label> labelDelayTime;
+    ScopedPointer<Slider> sliderFeedback;
+    ScopedPointer<Label> labelFeedback;
 
 
     //==============================================================================
@@ -68,4 +74,4 @@ private:
 //[EndFile] You can add extra defines here...
 //[/EndFile]
 
-#endif   // __JUCE_HEADER_E381F33C12CAF11D__
+#endif   // __JUCE_HEADER_F163B3138F7FE248__
